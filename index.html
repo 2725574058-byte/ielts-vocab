@@ -256,6 +256,31 @@
       .learn-nav{flex-wrap:wrap}
       th:nth-child(4),td:nth-child(4){display:none}
     }
+  
+    /* 账号登录与云同步 */
+    .account-chip{display:inline-flex;align-items:center;gap:7px}
+    .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+    .sync-dot.ok{background:var(--success)}
+    .sync-dot.busy{background:var(--warning)}
+    .sync-dot.bad{background:var(--danger)}
+    .account-grid{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+    .account-meta{display:grid;gap:6px}
+    .account-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .auth-modal{position:fixed;inset:0;background:rgba(10,15,25,.58);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999}
+    .auth-modal.hidden{display:none}
+    .auth-dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--border);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:22px;position:relative}
+    .auth-dialog h2{margin:0 0 6px}
+    .auth-close{position:absolute;right:14px;top:12px;border:0;background:transparent;color:var(--muted);font-size:26px;line-height:1;padding:6px}
+    .auth-fields{display:grid;gap:12px;margin-top:18px}
+    .auth-fields label{font-size:13px;color:var(--muted);display:grid;gap:6px}
+    .auth-fields input{width:100%;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:12px;border-radius:11px;outline:none}
+    .auth-fields input:focus{border-color:var(--primary)}
+    .auth-buttons{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+    .auth-feedback{min-height:22px;margin-top:12px;font-size:14px;color:var(--muted)}
+    .auth-feedback.ok{color:var(--success)}
+    .auth-feedback.bad{color:var(--danger)}
+    @media(max-width:720px){.account-grid{grid-template-columns:1fr}.account-actions{justify-content:flex-start}}
+
   </style>
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -279,9 +304,10 @@ window.setTimeout(function(){
   <header class="topbar">
     <div class="brand">
       <h1>雅思词汇真经 · 22章完整版</h1>
-      <p>全书22章 · 3674个学习词 · 学习记录保存在当前浏览器</p>
+      <p>全书22章 · 3674个学习词 · 游客本地保存，登录后可多设备同步</p>
     </div>
     <div class="top-actions">
+      <button class="btn account-chip" id="authBtn"><span class="sync-dot" id="topSyncDot"></span><span id="authBtnText">登录 / 注册</span></button>
       <button class="btn" id="themeBtn">切换深色</button>
       <button class="btn" id="speakCurrentBtn">朗读当前词</button>
       <button class="btn" data-go="flashcards">开始复习</button>
@@ -533,6 +559,24 @@ abandon,/əˈbændən/,v.,放弃；抛弃,abandon a plan,They abandoned the proj
       </section>
 
       <section class="view" id="settings">
+
+        <div class="panel">
+          <h2>账号与云同步</h2>
+          <div class="account-grid">
+            <div class="account-meta">
+              <b id="accountIdentity">游客模式</b>
+              <span class="muted small" id="accountSyncStatus">学习记录仅保存在当前设备</span>
+            </div>
+            <div class="account-actions">
+              <button class="btn primary" id="accountLoginBtn">登录 / 注册</button>
+              <button class="btn" id="syncNowBtn" style="display:none">立即同步</button>
+              <button class="btn" id="restoreCloudBtn" style="display:none">从云端恢复</button>
+              <button class="btn danger" id="logoutBtn" style="display:none">退出登录</button>
+            </div>
+          </div>
+          <p class="muted small" style="margin-bottom:0;margin-top:12px">登录后，学习进度会先保存在本机，再自动同步到云端。断网时仍可继续使用，恢复网络后会再次同步。</p>
+        </div>
+
         <div class="panel">
           <h2>学习设置</h2>
           <div class="settings-grid">
@@ -570,11 +614,10 @@ abandon,/əˈbændən/,v.,放弃；抛弃,abandon a plan,They abandoned the proj
         <div class="panel">
           <h2>进度与分享说明</h2>
           <div class="notice">
-            <b>每个人的进度默认独立。</b>
+            <b>游客和账号数据相互独立。</b>
             <div class="muted small" style="margin-top:6px">
-              学习记录保存在当前设备和浏览器中，不会上传到服务器。分享同一个网页链接后，
-              对方会从自己的新进度开始；不同设备之间也不会自动同步。需要转移进度时，
-              请使用下方的“导出全部数据”和“导入备份”。
+              不登录时，记录只保存在当前设备；登录后，同一账号可以在手机、iPad和电脑之间同步。
+              每个账号只能读取自己的学习进度。导出备份仍建议保留，便于手动恢复。
             </div>
           </div>
         </div>
@@ -67382,5 +67425,304 @@ window.IELTS_APP_READY=true;
 var mobileNotice=document.getElementById("mobileLoadNotice");
 if(mobileNotice)mobileNotice.style.display="none";
 </script>
+
+<div class="auth-modal hidden" id="authModal" aria-hidden="true">
+  <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <button class="auth-close" id="authCloseBtn" aria-label="关闭">×</button>
+    <h2 id="authModalTitle">登录账号</h2>
+    <p class="muted small" id="authModalHint">使用邮箱和密码登录；没有账号可直接注册。</p>
+    <div class="auth-fields">
+      <label id="authEmailLabel">邮箱
+        <input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+      </label>
+      <label>密码
+        <input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="至少8位" />
+      </label>
+    </div>
+    <div class="auth-buttons" id="normalAuthActions">
+      <button class="btn primary" id="loginBtn">登录</button>
+      <button class="btn" id="registerBtn">注册账号</button>
+      <button class="btn ghost" id="forgotBtn">忘记密码</button>
+    </div>
+    <div class="auth-buttons" id="recoveryAuthActions" style="display:none">
+      <button class="btn primary" id="updatePasswordBtn">设置新密码</button>
+    </div>
+    <div class="auth-feedback" id="authFeedback"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+(function(){
+  const SUPABASE_URL = "https://oufelexchjeykcsbjzke.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_bizZsA-yvkxqytt_6xKdFQ_nCvq1eEB";
+  const APP_URL = "https://2725574058-byte.github.io/ielts-vocab/";
+  const GUEST_BACKUP_KEY = STORAGE_KEY + "_guest";
+  const USER_LOCAL_PREFIX = STORAGE_KEY + "_user_";
+
+  let sb = null;
+  let authUser = null;
+  let loadedUserId = null;
+  let syncTimer = null;
+  let syncing = false;
+  let applyingCloud = false;
+  let recoveryMode = false;
+  const baseSave = save;
+
+  const el = id => document.getElementById(id);
+  function setFeedback(text, type){
+    const box=el("authFeedback");
+    if(!box)return;
+    box.textContent=text||"";
+    box.className="auth-feedback"+(type?" "+type:"");
+  }
+  function setSyncStatus(text,type){
+    if(el("accountSyncStatus"))el("accountSyncStatus").textContent=text;
+    const dot=el("topSyncDot");
+    if(dot)dot.className="sync-dot"+(type?" "+type:"");
+  }
+  function openAuthModal(mode){
+    recoveryMode=mode==="recovery";
+    el("authModal").classList.remove("hidden");
+    el("authModal").setAttribute("aria-hidden","false");
+    el("normalAuthActions").style.display=recoveryMode?"none":"flex";
+    el("recoveryAuthActions").style.display=recoveryMode?"flex":"none";
+    el("authEmailLabel").style.display=recoveryMode?"none":"grid";
+    el("authModalTitle").textContent=recoveryMode?"设置新密码":"登录账号";
+    el("authModalHint").textContent=recoveryMode?"请输入新的登录密码，至少8位。":"使用邮箱和密码登录；没有账号可直接注册。";
+    el("authPassword").value="";
+    el("authPassword").setAttribute("autocomplete",recoveryMode?"new-password":"current-password");
+    setFeedback("");
+    setTimeout(()=>recoveryMode?el("authPassword").focus():el("authEmail").focus(),50);
+  }
+  function closeAuthModal(){
+    if(recoveryMode)return;
+    el("authModal").classList.add("hidden");
+    el("authModal").setAttribute("aria-hidden","true");
+    setFeedback("");
+  }
+  function meaningfulLocalProgress(){
+    return state.words.some(w=>w.status!=="new"||w.reviewCount||w.wrongCount)||
+      (state.streak&&state.streak.count>0)||
+      (state.daily&&(state.daily.newDone||state.daily.dueDone||state.daily.answered));
+  }
+  function compactState(){
+    const changed=[];
+    const custom=[];
+    const presentBase=new Set();
+    state.words.forEach(w=>{
+      if(/^full_\d+$/.test(w.id)){
+        presentBase.add(w.id);
+        if(w.status!=="new"||Number(w.level)||w.nextReview!==todayKey()||Number(w.wrongCount)||Number(w.reviewCount)||w.lastReviewed||w.learnedDate){
+          changed.push({
+            id:w.id,status:w.status,level:Number(w.level)||0,nextReview:w.nextReview||todayKey(),
+            wrongCount:Number(w.wrongCount)||0,reviewCount:Number(w.reviewCount)||0,
+            lastReviewed:w.lastReviewed||null,learnedDate:w.learnedDate||null
+          });
+        }
+      }else{
+        custom.push(w);
+      }
+    });
+    const deletedBaseIds=[];
+    for(let i=1;i<=DEMO_WORDS.length;i++){
+      const id="full_"+i;
+      if(!presentBase.has(id))deletedBaseIds.push(id);
+    }
+    return {
+      version:1,
+      settings:state.settings,
+      daily:state.daily,
+      streak:state.streak,
+      changedWords:changed,
+      customWords:custom,
+      deletedBaseIds:deletedBaseIds,
+      savedAt:new Date().toISOString()
+    };
+  }
+  function applyCompact(payload){
+    if(!payload||typeof payload!=="object")throw new Error("云端进度格式不正确");
+    const next=defaultState();
+    next.settings=Object.assign(next.settings,payload.settings||{});
+    next.daily=Object.assign(next.daily,payload.daily||{});
+    next.streak=Object.assign(next.streak,payload.streak||{});
+    const deleted=new Set(payload.deletedBaseIds||[]);
+    const changes=new Map((payload.changedWords||[]).map(x=>[x.id,x]));
+    next.words=next.words.filter(w=>!deleted.has(w.id)).map(w=>Object.assign(w,changes.get(w.id)||{}));
+    (payload.customWords||[]).forEach(w=>{
+      if(w&&w.id&&!next.words.some(x=>x.id===w.id))next.words.push(w);
+    });
+    state=next;
+    normalizeState();
+    applyingCloud=true;
+    baseSave();
+    try{localStorage.setItem(USER_LOCAL_PREFIX+authUser.id,JSON.stringify(state));}catch(e){}
+    applyingCloud=false;
+  }
+  function updateAccountUI(){
+    const signedIn=!!authUser;
+    el("authBtnText").textContent=signedIn?(authUser.email||"已登录"):"登录 / 注册";
+    el("accountIdentity").textContent=signedIn?("已登录："+(authUser.email||authUser.id)):"游客模式";
+    el("accountLoginBtn").style.display=signedIn?"none":"inline-block";
+    el("syncNowBtn").style.display=signedIn?"inline-block":"none";
+    el("restoreCloudBtn").style.display=signedIn?"inline-block":"none";
+    el("logoutBtn").style.display=signedIn?"inline-block":"none";
+    if(!signedIn)setSyncStatus("学习记录仅保存在当前设备","");
+  }
+  async function pushCloud(showMessage){
+    if(!sb||!authUser||syncing||applyingCloud)return;
+    syncing=true;
+    setSyncStatus("正在同步…","busy");
+    const row={user_id:authUser.id,progress:compactState(),updated_at:new Date().toISOString()};
+    const {error}=await sb.from("user_progress").upsert(row,{onConflict:"user_id"});
+    syncing=false;
+    if(error){
+      setSyncStatus("同步失败，稍后会重试","bad");
+      if(showMessage)alert("同步失败："+error.message);
+      return;
+    }
+    try{localStorage.setItem(USER_LOCAL_PREFIX+authUser.id,JSON.stringify(state));}catch(e){}
+    setSyncStatus("已同步 · "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),"ok");
+    if(showMessage)alert("学习进度已同步到云端");
+  }
+  function scheduleCloudSync(){
+    if(!authUser||applyingCloud)return;
+    clearTimeout(syncTimer);
+    setSyncStatus(navigator.onLine?"等待同步…":"离线使用，联网后同步",navigator.onLine?"busy":"");
+    syncTimer=setTimeout(()=>pushCloud(false),1400);
+  }
+  async function pullCloud(options){
+    options=options||{};
+    if(!sb||!authUser)return;
+    setSyncStatus("正在读取云端进度…","busy");
+    const {data,error}=await sb.from("user_progress").select("progress,updated_at").eq("user_id",authUser.id).maybeSingle();
+    if(error){
+      const local=localStorage.getItem(USER_LOCAL_PREFIX+authUser.id);
+      if(local){
+        try{state=JSON.parse(local);normalizeState();applyingCloud=true;baseSave();applyingCloud=false;}catch(e){}
+      }
+      setSyncStatus("云端连接失败，正在使用本机进度","bad");
+      if(options.showMessage)alert("读取云端进度失败："+error.message);
+      return;
+    }
+    if(data&&data.progress){
+      applyCompact(data.progress);
+      setSyncStatus("已从云端恢复 · "+new Date(data.updated_at).toLocaleString(),"ok");
+      if(options.showMessage)alert("已恢复云端进度");
+    }else{
+      await pushCloud(false);
+      setSyncStatus("本机进度已作为初始云端进度保存","ok");
+    }
+  }
+  async function processSession(session,event){
+    if(session&&session.user){
+      const firstForUser=loadedUserId!==session.user.id;
+      authUser=session.user;
+      if(!localStorage.getItem(GUEST_BACKUP_KEY)){
+        try{localStorage.setItem(GUEST_BACKUP_KEY,JSON.stringify(state));}catch(e){}
+      }
+      updateAccountUI();
+      if(firstForUser){
+        loadedUserId=session.user.id;
+        await pullCloud({showMessage:false});
+      }
+      if(event==="SIGNED_IN")closeAuthModal();
+    }else{
+      const wasSignedIn=!!authUser;
+      authUser=null;loadedUserId=null;
+      updateAccountUI();
+      if(wasSignedIn){
+        const guest=localStorage.getItem(GUEST_BACKUP_KEY);
+        try{state=guest?JSON.parse(guest):defaultState();normalizeState();applyingCloud=true;baseSave();applyingCloud=false;}catch(e){}
+      }
+      try{localStorage.setItem(GUEST_BACKUP_KEY,JSON.stringify(state));}catch(e){}
+    }
+  }
+
+  // 扩展原有本地保存：本地立即保存，登录后延迟同步。
+  save=function(){
+    baseSave();
+    try{
+      if(authUser)localStorage.setItem(USER_LOCAL_PREFIX+authUser.id,JSON.stringify(state));
+      else localStorage.setItem(GUEST_BACKUP_KEY,JSON.stringify(state));
+    }catch(e){}
+    scheduleCloudSync();
+  };
+
+  el("authBtn").onclick=()=>authUser?showView("settings"):openAuthModal("normal");
+  el("accountLoginBtn").onclick=()=>openAuthModal("normal");
+  el("authCloseBtn").onclick=closeAuthModal;
+  el("authModal").onclick=e=>{if(e.target===el("authModal"))closeAuthModal()};
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!recoveryMode)closeAuthModal()});
+
+  el("loginBtn").onclick=async()=>{
+    if(!sb)return setFeedback("账号服务尚未加载，请检查网络后重试。","bad");
+    const email=el("authEmail").value.trim(),password=el("authPassword").value;
+    if(!email||password.length<8)return setFeedback("请输入正确邮箱和至少8位密码。","bad");
+    setFeedback("正在登录…");
+    const {error}=await sb.auth.signInWithPassword({email,password});
+    if(error)setFeedback("登录失败："+error.message,"bad");
+  };
+  el("registerBtn").onclick=async()=>{
+    if(!sb)return setFeedback("账号服务尚未加载，请检查网络后重试。","bad");
+    const email=el("authEmail").value.trim(),password=el("authPassword").value;
+    if(!email||password.length<8)return setFeedback("请输入正确邮箱和至少8位密码。","bad");
+    setFeedback("正在注册…");
+    const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:APP_URL}});
+    if(error)return setFeedback("注册失败："+error.message,"bad");
+    if(data&&data.session)setFeedback("注册成功，已登录。","ok");
+    else setFeedback("注册成功。请打开邮箱中的确认邮件，确认后再登录。","ok");
+  };
+  el("forgotBtn").onclick=async()=>{
+    if(!sb)return setFeedback("账号服务尚未加载，请检查网络后重试。","bad");
+    const email=el("authEmail").value.trim();
+    if(!email)return setFeedback("请先填写注册邮箱。","bad");
+    setFeedback("正在发送重置邮件…");
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:APP_URL});
+    if(error)setFeedback("发送失败："+error.message,"bad");
+    else setFeedback("重置邮件已发送，请到邮箱中打开链接。","ok");
+  };
+  el("updatePasswordBtn").onclick=async()=>{
+    const password=el("authPassword").value;
+    if(password.length<8)return setFeedback("新密码至少8位。","bad");
+    setFeedback("正在更新密码…");
+    const {error}=await sb.auth.updateUser({password});
+    if(error)setFeedback("更新失败："+error.message,"bad");
+    else{
+      recoveryMode=false;
+      setFeedback("密码已更新，可以正常使用。","ok");
+      setTimeout(()=>{el("authModal").classList.add("hidden");},900);
+    }
+  };
+  el("syncNowBtn").onclick=()=>pushCloud(true);
+  el("restoreCloudBtn").onclick=()=>{
+    if(confirm("确定用云端进度替换当前设备上的进度吗？"))pullCloud({showMessage:true});
+  };
+  el("logoutBtn").onclick=async()=>{
+    if(confirm("确定退出当前账号吗？"))await sb.auth.signOut();
+  };
+  window.addEventListener("online",()=>{if(authUser){setSyncStatus("网络已恢复，正在同步…","busy");pushCloud(false)}});
+  window.addEventListener("offline",()=>{if(authUser)setSyncStatus("离线使用，联网后同步","")});
+
+  async function initAuth(){
+    if(!window.supabase||!window.supabase.createClient){
+      setSyncStatus("账号服务加载失败，学习功能仍可正常使用","bad");
+      return;
+    }
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    sb.auth.onAuthStateChange((event,session)=>{
+      if(event==="PASSWORD_RECOVERY")setTimeout(()=>openAuthModal("recovery"),0);
+      setTimeout(()=>processSession(session,event),0);
+    });
+    const {data,error}=await sb.auth.getSession();
+    if(error)setSyncStatus("账号状态读取失败，当前使用游客模式","bad");
+    else await processSession(data.session,"INITIAL_SESSION");
+  }
+  updateAccountUI();
+  initAuth();
+})();
+</script>
+
 <script>if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}</script></body>
 </html>
