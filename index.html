@@ -536,7 +536,7 @@ window.setTimeout(function(){
       <section class="view" id="library">
         <div class="panel">
           <div class="section-head">
-            <div><h2>词库管理</h2><div class="muted small">已导入《雅思词汇真经》全书22章完整词表</div></div>
+            <div><h2>词库管理</h2><div class="muted small" id="libraryManagerNotice">当前词库：雅思词汇真经（22章，3674词）</div></div>
             <button class="btn" id="addWordBtn">新增单词</button>
           </div>
           <div class="toolbar">
@@ -66812,17 +66812,42 @@ function save(){
 function chapterCountsForLibrary(libraryId){const counts={};libraryWords(libraryId).forEach(w=>{const c=Number(w.chapter)||0;if(c)counts[c]=(counts[c]||0)+1;});return counts;}
 function updateLibraryUI(){
   const lib=LIBRARY_CONFIG[activeLibraryId]||LIBRARY_CONFIG.zhenjing;
-  const title=document.getElementById("appTitle"),subtitle=document.getElementById("appSubtitle"),noticeTitle=document.getElementById("libraryNoticeTitle"),noticeText=document.getElementById("libraryNoticeText"),footer=document.getElementById("appFooter"),select=document.getElementById("librarySelect");
+  const title=document.getElementById("appTitle"),subtitle=document.getElementById("appSubtitle"),noticeTitle=document.getElementById("libraryNoticeTitle"),noticeText=document.getElementById("libraryNoticeText"),footer=document.getElementById("appFooter"),librarySelect=document.getElementById("librarySelect"),chapterSelect=document.getElementById("chapterStudySelect"),managerNotice=document.getElementById("libraryManagerNotice");
+  const total=libraryWords(activeLibraryId).length;
   if(title)title.textContent=lib.title;
-  if(subtitle)subtitle.textContent=`${lib.name} · ${libraryWords(activeLibraryId).length} 个词 · 各词库进度独立保存，登录后可云同步`;
+  if(subtitle)subtitle.textContent=`${lib.name} · ${total} 个词 · 各词库进度独立保存，登录后可云同步`;
   if(noticeTitle)noticeTitle.textContent=activeLibraryId==="zhenjing"?"全书22章完整版":"8个听力场景词库";
-  if(noticeText)noticeText.textContent=activeLibraryId==="zhenjing"?"共"+libraryWords(activeLibraryId).length+"个学习词，按原书章节、词群和页码顺序排列；音标、例句与译文主要依据上传的彩色版整理。":"共"+libraryWords(activeLibraryId).length+"个词，按上传的PDF整理为住宿、饮食、旅游、健康、社会生活、教育、环境、动植物8个场景。原PDF未为所有词提供音标、搭配和例句，因此缺少的项目会留空，不会擅自补造。";
+  if(noticeText)noticeText.textContent=activeLibraryId==="zhenjing"?"共"+total+"个学习词，按原书章节、词群和页码顺序排列；音标、例句与译文主要依据上传的彩色版整理。":"共"+total+"个词，按上传的PDF整理为住宿、饮食、旅游、健康、社会生活、教育、环境、动植物8个场景。原PDF未为所有词提供音标、搭配和例句，因此缺少的项目会留空，不会擅自补造。";
   if(footer)footer.textContent=activeLibraryId==="zhenjing"?"已导入全书22章词汇；例句辅助词典仅用于点击查词，不计入学习数量。":"当前为雅思听力场景词库；词库来源为上传的《雅思听力场景词汇精华版》PDF。";
-  if(select){
+
+  // The top selector switches whole vocabularies, not chapters.
+  if(librarySelect){
+    librarySelect.innerHTML=LIBRARY_IDS.map(id=>{
+      const item=LIBRARY_CONFIG[id];
+      return `<option value="${id}">${item.name}（${libraryWords(id).length}词）</option>`;
+    }).join("");
+    librarySelect.value=activeLibraryId;
+  }
+
+  // The chapter selector is separate and adapts to the active vocabulary.
+  const validChapter=String(state.settings.studyChapter||"all");
+  if(validChapter!=="all"&&!Object.prototype.hasOwnProperty.call(lib.chapterNames,validChapter)){
+    state.settings.studyChapter="all";
+  }
+  if(chapterSelect){
     const counts=chapterCountsForLibrary(activeLibraryId);
     const options=['<option value="all">全书顺序（推荐）</option>'];
-    Object.keys(lib.chapterNames).map(Number).sort((a,b)=>a-b).forEach(ch=>{const label=activeLibraryId==="listening"?"场景 ":"Chapter ";options.push(`<option value="${ch}">${label}${ch} · ${lib.chapterNames[ch]}（${counts[ch]||0}词）</option>`);});
-    select.innerHTML=options.join("");select.value=String(state.settings.studyChapter||"all");
+    Object.keys(lib.chapterNames).map(Number).sort((a,b)=>a-b).forEach(ch=>{
+      const label=activeLibraryId==="listening"?"场景 ":"Chapter ";
+      options.push(`<option value="${ch}">${label}${ch} · ${lib.chapterNames[ch]}（${counts[ch]||0}词）</option>`);
+    });
+    chapterSelect.innerHTML=options.join("");
+    chapterSelect.value=String(state.settings.studyChapter||"all");
+  }
+  if(managerNotice){
+    managerNotice.textContent=activeLibraryId==="zhenjing"
+      ? `当前词库：雅思词汇真经（22章，${total}词）`
+      : `当前词库：雅思听力场景词汇精华版（8个场景，${total}词）`;
   }
   const restoreButton=document.getElementById("restoreDemo");if(restoreButton)restoreButton.textContent="恢复当前词库初始内容";
   document.title=lib.title+" · 学习与复习";
